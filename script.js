@@ -6,6 +6,53 @@ let shiftEnd = null;
 let breakStart = null;
 let totalBreakMinutes = 0;
 
+function setupAddressAutocomplete() {
+  const input = document.getElementById("address");
+  const suggestionBox = document.getElementById("address-suggestions");
+
+  input.addEventListener("input", function () {
+    const val = this.value.toLowerCase();
+    suggestionBox.innerHTML = "";
+    if (!val) return;
+
+    const matches = savedAddresses.filter(addr => addr.toLowerCase().startsWith(val));
+    if (matches.length === 0) return;
+
+    matches.forEach(match => {
+      const item = document.createElement("div");
+      item.className = "autocomplete-item";
+
+      // Highlight the matching part in bold
+      item.innerHTML = `<strong>${match.substr(0, val.length)}</strong>${match.substr(val.length)}`;
+
+      item.addEventListener("click", () => {
+        input.value = match;
+        suggestionBox.innerHTML = "";
+      });
+
+      suggestionBox.appendChild(item);
+    });
+  });
+
+  // Close suggestions when clicking outside
+  document.addEventListener("click", function (e) {
+    if (e.target !== input) {
+      suggestionBox.innerHTML = "";
+    }
+  });
+
+  // Optional: handle arrow keys and Enter for selection (advanced)
+}
+
+window.onload = () => {
+  loadData();
+  renderOrders();
+  renderSavedAddresses();
+  updateSummary();
+  setupAddressAutocomplete();  // Initialize autocomplete
+};
+
+
 // Load saved data from localStorage on start
 window.onload = () => {
   loadData();
