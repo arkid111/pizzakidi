@@ -16,16 +16,24 @@ window.onload = () => {
 
 // ======== SHIFT & BREAK FUNCTIONS ========
 function startShift() {
-  if (shiftStart) {
+  if (shiftStart && !shiftEnd) {
     alert("Shift already started!");
     return;
   }
+  // Reset all shift-related data
   shiftStart = new Date();
   shiftEnd = null;
+  breakStart = null;
   totalBreakMinutes = 0;
+
+  // Clear today's orders to start fresh
+  const today = new Date().toISOString().slice(0, 10);
+  orders = orders.filter(order => order.date !== today);
+
   saveData();
+  renderOrders();
   updateSummary();
-  alert("Shift started!");
+  alert("Shift started and previous data reset!");
 }
 
 function startBreak() {
@@ -38,6 +46,8 @@ function startBreak() {
     return;
   }
   breakStart = new Date();
+  saveData();
+  updateSummary();
   alert("Break started!");
 }
 
@@ -73,6 +83,11 @@ function endShift() {
 // ======== ORDER FUNCTIONS ========
 function addOrder(event) {
   event.preventDefault();
+
+  if (!canAddOrder()) {
+    alert("Cannot add orders during break or when shift is not active.");
+    return;
+  }
 
   const customer = document.getElementById("customer").value.trim();
   const addressInput = document.getElementById("address").value.trim();
@@ -113,7 +128,7 @@ function addOrder(event) {
   updateSummary();
 }
 
-// Toggle delivered status when checkbox clicked
+// Toggle delivered status when checkbox changed
 function toggleDelivered(id) {
   const order = orders.find(o => o.id === id);
   if (!order) return;
@@ -154,12 +169,12 @@ function renderOrders() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = order.delivered;
-    checkbox.onclick = () => toggleDelivered(order.id);
+    checkbox.onchange = () => toggleDelivered(order.id);
 
     // Order info
     const infoDiv = document.createElement("div");
     infoDiv.className = "order-info";
-   let text = `${order.address} - ${order.price.toFixed(2)} ALL`;
+    let text = `${order.address} - ${order.price.toFixed(2)} ALL`;
     if (order.customer) text = `${order.customer} | ` + text;
     if (order.notes) text += ` (${order.notes})`;
     infoDiv.textContent = text;
@@ -214,6 +229,37 @@ function updateSummary() {
   document.getElementById("pending-count").textContent = pendingCount;
   document.getElementById("shift-time").textContent = `${shiftMinutes.toFixed(0)} min`;
   document.getElementById("break-time").textContent = `${totalBreakMinutes.toFixed(0)} min`;
+
+  updateAddOrderFormState();
+}
+
+// ======== FORM ENABLE/DISABLE LOGIC ========
+function canAddOrder() {
+  return shiftStart && !shiftEnd && !breakStart;
+}
+
+function updateAddOrderFormState() {
+  const form = document.querySelector("#add-order form");
+  const info = document.getElementById("order-info-message") || (() => {
+    const el = document.createElement("p");
+    el.id = "order-info-message";
+    el.style.color = "#cc0000";
+    el.style.fontWeight = "600";
+    el.style.marginTop = "5px";
+    form.parentNode.appendChild(el);
+    return el;
+  })();
+
+  if (canAddOrder()) {
+    form.querySelectorAll("input, button").forEach(el => el.disabled = false);
+    info.textContent = "";
+  } else if (breakStart) {
+    form.querySelectorAll("input, button").forEach(el => el.disabled = true);
+    info.textContent = "Cannot add orders during break.";
+  } else if (!shiftStart || shiftEnd) {
+    form.querySelectorAll("input, button").forEach(el => el.disabled = true);
+    info.textContent = "Start a shift to add orders.";
+  }
 }
 
 // ======== LOCAL STORAGE ========
@@ -244,4 +290,13 @@ function loadData() {
 
   const breakMinutesLS = localStorage.getItem("totalBreakMinutes");
   totalBreakMinutes = breakMinutesLS ? Number(breakMinutesLS) : 0;
+}
+
+// ======== SERVICE WORKER REGISTER (Optional) ========
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").then(() => {
+      console.log("Service Worker registered");
+    });
+  });
 }
