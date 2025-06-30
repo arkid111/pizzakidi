@@ -1,5 +1,6 @@
+// Firebase auth and Firestore references from firebase-config.js
+// Make sure firebase, auth, db are initialized in firebase-config.js
 
-// ======== GLOBALS ========
 let orders = [];
 let savedAddresses = [];
 let shiftStart = null;
@@ -7,259 +8,108 @@ let shiftEnd = null;
 let breakStart = null;
 let totalBreakMinutes = 0;
 
-// Load saved data from localStorage on start
-window.onload = () => {
-  loadData();
-  renderOrders();
-  renderSavedAddresses();
-  updateSummary();
-  setupAddressAutocomplete();  // Initialize autocomplete
-};
+document.addEventListener("DOMContentLoaded", () => {
+  // Firebase auth sign-in is handled in index.html and firebase-config.js,
+  // so startApp() is called after sign-in
+});
 
-// ======== SHIFT & BREAK FUNCTIONS ========
-function startShift() {
-  if (shiftStart && !shiftEnd) {
-    alert("Shift already started!");
-    return;
-  }
-  // Reset all shift-related data
-  shiftStart = new Date();
-  shiftEnd = null;
-  breakStart = null;
-  totalBreakMinutes = 0;
-
-  // Clear today's orders to start fresh
-  const today = new Date().toISOString().slice(0, 10);
-  orders = orders.filter(order => order.date !== today);
-
-  saveData();
+// Main app logic entrypoint, called after anonymous sign-in
+async function startApp() {
+  await loadDataFromCloud();
   renderOrders();
   updateSummary();
-  alert("Shift started and previous data reset!");
+  setupAddressAutocomplete();
+  updateUIState();
 }
 
-function startBreak() {
-  if (!shiftStart) {
-    alert("Start shift first!");
-    return;
-  }
-  if (breakStart) {
-    alert("Already on a break!");
-    return;
-  }
-  breakStart = new Date();
-  saveData();
-  updateSummary();
-  alert("Break started!");
+// ========== SAVE & LOAD CLOUD DATA ==========
+
+async function saveDataToCloud() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const docRef = db.collection("users").doc(user.uid);
+  await docRef.set({
+    orders,
+    savedAddresses,
+    shiftStart: shiftStart ? shiftStart.toISOString() : null,
+    shiftEnd: shiftEnd ? shiftEnd.toISOString() : null,
+    breakStart: breakStart ? breakStart.toISOString() : null,
+    totalBreakMinutes,
+  });
+  console.log("Data saved to cloud");
 }
 
-function endBreak() {
-  if (!breakStart) {
-    alert("No break in progress!");
-    return;
+async function loadDataFromCloud() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const docRef = db.collection("users").doc(user.uid);
+  const doc = await docRef.get();
+  if (doc.exists) {
+    const data = doc.data();
+    orders = data.orders || [];
+    savedAddresses = data.savedAddresses || [];
+    shiftStart = data.shiftStart ? new Date(data.shiftStart) : null;
+    shiftEnd = data.shiftEnd ? new Date(data.shiftEnd) : null;
+    breakStart = data.breakStart ? new Date(data.breakStart) : null;
+    totalBreakMinutes = data.totalBreakMinutes || 0;
+    console.log("Data loaded from cloud");
+  } else {
+    console.log("No cloud data found, starting fresh");
   }
-  const now = new Date();
-  const diff = (now - breakStart) / 60000; // minutes
-  totalBreakMinutes += diff;
-  breakStart = null;
-  saveData();
-  updateSummary();
-  alert(`Break ended. Break time added: ${diff.toFixed(1)} min`);
 }
 
-function endShift() {
-  if (!shiftStart) {
-    alert("No shift started!");
-    return;
-  }
-  if (breakStart) {
-    alert("End the break first!");
-    return;
-  }
-  shiftEnd = new Date();
-  saveData();
-  updateSummary();
-  alert("Shift ended!");
-}
+// ========== UI RENDERING ==========
 
-// ======== ORDER FUNCTIONS ========
-function addOrder(event) {
-  event.preventDefault();
-
-  if (!canAddOrder()) {
-    alert("Cannot add orders during break or when shift is not active.");
-    return;
-  }
-
-  const customer = document.getElementById("customer").value.trim();
-  const addressInput = document.getElementById("address").value.trim();
-  const priceInput = document.getElementById("price").value;
-  const notes = document.getElementById("notes").value.trim();
-
-  if (!addressInput || !priceInput || isNaN(priceInput) || Number(priceInput) <= 0) {
-    alert("Please enter a valid address and price.");
-    return;
-  }
-
-  // Save new address if not already saved
-  if (!savedAddresses.includes(addressInput)) {
-    savedAddresses.push(addressInput);
-    renderSavedAddresses();
-  }
-
-  const order = {
-    id: Date.now(),
-    customer,
-    address: addressInput,
-    price: parseFloat(priceInput),
-    notes,
-    delivered: false,
-    date: new Date().toISOString().slice(0, 10), // YYYY-MM-DD for today
-  };
-
-  orders.push(order);
-
-  // Clear form inputs
-  document.getElementById("customer").value = "";
-  document.getElementById("address").value = "";
-  document.getElementById("price").value = "";
-  document.getElementById("notes").value = "";
-
-  saveData();
-  renderOrders();
-  updateSummary();
-}
-
-// Toggle delivered status when checkbox changed
-function toggleDelivered(id) {
-  const order = orders.find(o => o.id === id);
-  if (!order) return;
-  order.delivered = !order.delivered;
-  saveData();
-  renderOrders();
-  updateSummary();
-}
-
-// Delete order
-function deleteOrder(id) {
-  if (!confirm("Delete this order?")) return;
-  orders = orders.filter(o => o.id !== id);
-  saveData();
-  renderOrders();
-  updateSummary();
-}
-
-// ======== RENDER FUNCTIONS ========
 function renderOrders() {
-  const today = new Date().toISOString().slice(0, 10);
-  const orderList = document.getElementById("order-list");
-  orderList.innerHTML = "";
-
-  // Filter today's orders
-  const todaysOrders = orders.filter(o => o.date === today);
-
-  if (todaysOrders.length === 0) {
-    orderList.innerHTML = "<li>No orders yet.</li>";
-    return;
-  }
-
-  for (const order of todaysOrders) {
+  const list = document.getElementById("order-list");
+  list.innerHTML = "";
+  orders.forEach((order, i) => {
     const li = document.createElement("li");
     li.className = order.delivered ? "delivered" : "";
-
-    // Checkbox
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = order.delivered;
-    checkbox.onchange = () => toggleDelivered(order.id);
-
-    // Order info
-    const infoDiv = document.createElement("div");
-    infoDiv.className = "order-info";
-    let text = `${order.address} - ${order.price.toFixed(2)} ALL`;
-    if (order.customer) text = `${order.customer} | ` + text;
-    if (order.notes) text += ` (${order.notes})`;
-    infoDiv.textContent = text;
-
-    // Actions (Delete)
-    const actionsDiv = document.createElement("div");
-    actionsDiv.className = "order-actions";
-    const delBtn = document.createElement("button");
-    delBtn.textContent = "Delete";
-    delBtn.onclick = () => deleteOrder(order.id);
-    actionsDiv.appendChild(delBtn);
-
-    li.appendChild(checkbox);
-    li.appendChild(infoDiv);
-    li.appendChild(actionsDiv);
-
-    orderList.appendChild(li);
-  }
-}
-
-function renderSavedAddresses() {
-  // We don't use datalist anymore for autocomplete, but keep this for reference or fallback
-  // or you may remove this function if not needed.
+    li.innerHTML = `
+      <input type="checkbox" ${order.delivered ? "checked" : ""} onchange="toggleDelivered(${i})" />
+      <div class="order-info">
+        <strong>${order.customer || "No Name"}</strong> - ${order.address} - ${order.price} ALL
+        <br/>
+        <small>${order.notes || ""}</small>
+      </div>
+    `;
+    list.appendChild(li);
+  });
+  updateUIState();
 }
 
 function updateSummary() {
-  const today = new Date().toISOString().slice(0, 10);
-  const todaysOrders = orders.filter(o => o.date === today);
+  const totalEarned = orders
+    .filter((o) => o.delivered)
+    .reduce((acc, o) => acc + parseFloat(o.price || 0), 0);
 
-  const totalEarned = todaysOrders
-    .filter(o => o.delivered)
-    .reduce((sum, o) => sum + o.price, 0);
+  const deliveredCount = orders.filter((o) => o.delivered).length;
+  const pendingCount = orders.length - deliveredCount;
 
-  const deliveredCount = todaysOrders.filter(o => o.delivered).length;
-  const pendingCount = todaysOrders.length - deliveredCount;
-
-  // Shift time
-  let shiftMinutes = 0;
-  if (shiftStart) {
-    const end = shiftEnd || new Date();
-    shiftMinutes = (end - shiftStart) / 60000 - totalBreakMinutes;
-    if (shiftMinutes < 0) shiftMinutes = 0;
-  }
-
-  document.getElementById("total-earned").textContent = `${totalEarned.toFixed(2)} ALL`;
+  document.getElementById("total-earned").textContent = totalEarned.toFixed(2) + " ALL";
   document.getElementById("delivered-count").textContent = deliveredCount;
   document.getElementById("pending-count").textContent = pendingCount;
-  document.getElementById("shift-time").textContent = `${shiftMinutes.toFixed(0)} min`;
-  document.getElementById("break-time").textContent = `${totalBreakMinutes.toFixed(0)} min`;
 
-  updateAddOrderFormState();
-}
-
-// ======== FORM ENABLE/DISABLE LOGIC ========
-function canAddOrder() {
-  return shiftStart && !shiftEnd && !breakStart;
-}
-
-function updateAddOrderFormState() {
-  const form = document.querySelector("#add-order form");
-  const info = document.getElementById("order-info-message") || (() => {
-    const el = document.createElement("p");
-    el.id = "order-info-message";
-    el.style.color = "#cc0000";
-    el.style.fontWeight = "600";
-    el.style.marginTop = "5px";
-    form.parentNode.appendChild(el);
-    return el;
-  })();
-
-  if (canAddOrder()) {
-    form.querySelectorAll("input, button").forEach(el => el.disabled = false);
-    info.textContent = "";
-  } else if (breakStart) {
-    form.querySelectorAll("input, button").forEach(el => el.disabled = true);
-    info.textContent = "Cannot add orders during break.";
-  } else if (!shiftStart || shiftEnd) {
-    form.querySelectorAll("input, button").forEach(el => el.disabled = true);
-    info.textContent = "Start a shift to add orders.";
+  // Shift time display
+  const now = new Date();
+  let shiftMinutes = 0;
+  if (shiftStart) {
+    shiftMinutes = ((shiftEnd ? shiftEnd : now) - shiftStart) / 60000 - totalBreakMinutes;
+    if (shiftMinutes < 0) shiftMinutes = 0;
   }
+  document.getElementById("shift-time").textContent = Math.floor(shiftMinutes) + " min";
+
+  // Break time display
+  let breakMinutes = totalBreakMinutes;
+  if (breakStart) {
+    breakMinutes += (now - breakStart) / 60000;
+  }
+  document.getElementById("break-time").textContent = Math.floor(breakMinutes) + " min";
 }
 
-// ======== AUTOCOMPLETE SETUP ========
+// ========== AUTOCOMPLETE FOR ADDRESSES ==========
+
 function setupAddressAutocomplete() {
   const input = document.getElementById("address");
   const suggestionBox = document.getElementById("address-suggestions");
@@ -269,63 +119,165 @@ function setupAddressAutocomplete() {
     suggestionBox.innerHTML = "";
     if (!val) return;
 
-    const matches = savedAddresses.filter(addr => addr.toLowerCase().startsWith(val));
-    if (matches.length === 0) return;
+    const filtered = savedAddresses.filter((addr) =>
+      addr.toLowerCase().startsWith(val)
+    );
 
-    matches.forEach(match => {
-      const item = document.createElement("div");
-      item.className = "autocomplete-item";
-      item.innerHTML = `<strong>${match.substr(0, val.length)}</strong>${match.substr(val.length)}`;
-      item.addEventListener("click", () => {
-        input.value = match;
+    filtered.forEach((addr) => {
+      const div = document.createElement("div");
+      div.textContent = addr;
+      div.classList.add("autocomplete-item");
+      div.onclick = function () {
+        input.value = addr;
         suggestionBox.innerHTML = "";
-      });
-      suggestionBox.appendChild(item);
+      };
+      suggestionBox.appendChild(div);
     });
   });
 
-  document.addEventListener("click", function (e) {
-    if (e.target !== input) {
-      suggestionBox.innerHTML = "";
-    }
+  document.addEventListener("click", (e) => {
+    if (e.target !== input) suggestionBox.innerHTML = "";
   });
 }
 
-// ======== LOCAL STORAGE ========
-function saveData() {
-  localStorage.setItem("orders", JSON.stringify(orders));
-  localStorage.setItem("savedAddresses", JSON.stringify(savedAddresses));
-  localStorage.setItem("shiftStart", shiftStart ? shiftStart.toISOString() : null);
-  localStorage.setItem("shiftEnd", shiftEnd ? shiftEnd.toISOString() : null);
-  localStorage.setItem("breakStart", breakStart ? breakStart.toISOString() : null);
-  localStorage.setItem("totalBreakMinutes", totalBreakMinutes);
+// ========== ORDER MANAGEMENT ==========
+
+async function addOrder(event) {
+  event.preventDefault();
+
+  if (!canAddOrder()) {
+    alert("Cannot add orders during break or when shift is not active.");
+    return;
+  }
+
+  const customer = document.getElementById("customer").value.trim();
+  const address = document.getElementById("address").value.trim();
+  const price = document.getElementById("price").value.trim();
+  const notes = document.getElementById("notes").value.trim();
+
+  if (!address || !price || isNaN(price) || parseFloat(price) <= 0) {
+    alert("Please enter a valid address and price.");
+    return;
+  }
+
+  const order = {
+    customer,
+    address,
+    price: parseFloat(price).toFixed(2),
+    notes,
+    delivered: false,
+  };
+
+  orders.push(order);
+
+  // Save address if new
+  if (!savedAddresses.includes(address)) {
+    savedAddresses.push(address);
+  }
+
+  // Clear form
+  document.getElementById("customer").value = "";
+  document.getElementById("address").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("notes").value = "";
+  document.getElementById("address-suggestions").innerHTML = "";
+
+  await saveDataToCloud();
+  renderOrders();
+  updateSummary();
+  updateUIState();
 }
 
-function loadData() {
-  const ordersLS = localStorage.getItem("orders");
-  if (ordersLS) orders = JSON.parse(ordersLS);
-
-  const addressesLS = localStorage.getItem("savedAddresses");
-  if (addressesLS) savedAddresses = JSON.parse(addressesLS);
-
-  const shiftStartLS = localStorage.getItem("shiftStart");
-  shiftStart = shiftStartLS ? new Date(shiftStartLS) : null;
-
-  const shiftEndLS = localStorage.getItem("shiftEnd");
-  shiftEnd = shiftEndLS ? new Date(shiftEndLS) : null;
-
-  const breakStartLS = localStorage.getItem("breakStart");
-  breakStart = breakStartLS ? new Date(breakStartLS) : null;
-
-  const breakMinutesLS = localStorage.getItem("totalBreakMinutes");
-  totalBreakMinutes = breakMinutesLS ? Number(breakMinutesLS) : 0;
+async function toggleDelivered(index) {
+  orders[index].delivered = !orders[index].delivered;
+  await saveDataToCloud();
+  renderOrders();
+  updateSummary();
 }
 
-// ======== SERVICE WORKER REGISTER (Optional) ========
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js").then(() => {
-      console.log("Service Worker registered");
-    });
+// ========== SHIFT & BREAK MANAGEMENT ==========
+
+function canAddOrder() {
+  // Can't add orders if no shift or break active
+  if (!shiftStart) return false;
+  if (breakStart) return false;
+  if (shiftEnd) return false;
+  return true;
+}
+
+async function startShift() {
+  if (shiftStart && !shiftEnd) {
+    alert("Shift already started.");
+    return;
+  }
+  shiftStart = new Date();
+  shiftEnd = null;
+  breakStart = null;
+  totalBreakMinutes = 0;
+  orders = [];
+  savedAddresses = [];
+  await saveDataToCloud();
+  renderOrders();
+  updateSummary();
+  updateUIState();
+}
+
+async function endShift() {
+  if (!shiftStart || shiftEnd) {
+    alert("No active shift.");
+    return;
+  }
+  if (breakStart) {
+    alert("End break before ending shift.");
+    return;
+  }
+  shiftEnd = new Date();
+  await saveDataToCloud();
+  updateSummary();
+  updateUIState();
+}
+
+async function startBreak() {
+  if (!shiftStart || shiftEnd) {
+    alert("Start shift before break.");
+    return;
+  }
+  if (breakStart) {
+    alert("Break already started.");
+    return;
+  }
+  breakStart = new Date();
+  await saveDataToCloud();
+  updateSummary();
+  updateUIState();
+}
+
+async function endBreak() {
+  if (!breakStart) {
+    alert("No break started.");
+    return;
+  }
+  const now = new Date();
+  const breakDuration = (now - breakStart) / 60000; // in minutes
+  totalBreakMinutes += breakDuration;
+  breakStart = null;
+  await saveDataToCloud();
+  updateSummary();
+  updateUIState();
+}
+
+// ========== UI STATE (Disable buttons/forms as needed) ==========
+
+function updateUIState() {
+  // Buttons
+  document.querySelector("#shift-controls button[onclick='startShift()']").disabled = !!(shiftStart && !shiftEnd);
+  document.querySelector("#shift-controls button[onclick='endShift()']").disabled = !(shiftStart && !shiftEnd);
+  document.querySelector("#shift-controls button[onclick='startBreak()']").disabled = !shiftStart || shiftEnd || breakStart;
+  document.querySelector("#shift-controls button[onclick='endBreak()']").disabled = !breakStart;
+
+  // Disable add order form when break or no shift
+  const addOrderForm = document.querySelector("#add-order form");
+  addOrderForm.querySelectorAll("input, button[type='submit']").forEach((el) => {
+    el.disabled = !canAddOrder();
   });
 }
