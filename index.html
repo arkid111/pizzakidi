@@ -24,7 +24,8 @@
       <h2>Add Order</h2>
       <form onsubmit="addOrder(event)">
         <input type="text" id="customer" placeholder="Customer Name (optional)" />
-        <input type="text" id="address" placeholder="Address" list="saved-addresses" required />
+        <input type="text" id="address" placeholder="Address" autocomplete="off" required />
+        <div id="address-suggestions" class="autocomplete-items"></div>
         <datalist id="saved-addresses"></datalist>
        <input type="tel" pattern="[0-9]*" inputmode="numeric" id="price" placeholder="Price (ALL)" required />
         <input type="text" id="notes" placeholder="Notes (optional)" />
