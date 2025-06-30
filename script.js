@@ -159,7 +159,7 @@ function renderOrders() {
     // Order info
     const infoDiv = document.createElement("div");
     infoDiv.className = "order-info";
-    let text = `${order.address} - €${order.price.toFixed(2)}`;
+   let text = `${order.address} - ${order.price.toFixed(2)} ALL`;
     if (order.customer) text = `${order.customer} | ` + text;
     if (order.notes) text += ` (${order.notes})`;
     infoDiv.textContent = text;
@@ -209,7 +209,7 @@ function updateSummary() {
     if (shiftMinutes < 0) shiftMinutes = 0;
   }
 
-  document.getElementById("total-earned").textContent = `€${totalEarned.toFixed(2)}`;
+  document.getElementById("total-earned").textContent = `${totalEarned.toFixed(2)} ALL`;
   document.getElementById("delivered-count").textContent = deliveredCount;
   document.getElementById("pending-count").textContent = pendingCount;
   document.getElementById("shift-time").textContent = `${shiftMinutes.toFixed(0)} min`;
