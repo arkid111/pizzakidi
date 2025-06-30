@@ -1,24 +1,217 @@
+/* Reset & base */
+* {
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-/* General styles (you may already have your own) */
+body {
+  margin: 0;
+  background: #fff7f5;
+  color: #333;
+  padding: 10px;
+}
 
-/* Autocomplete suggestions dropdown */
+/* Container */
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 10px;
+}
+
+/* Header */
+header {
+  text-align: center;
+  background-color: #ff3e3e;
+  color: white;
+  padding: 15px 10px;
+  border-radius: 8px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: 1px;
+}
+
+/* Shift buttons */
+#shift-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#shift-controls button {
+  background-color: white;
+  color: #ff3e3e;
+  border: 2px solid #ff3e3e;
+  border-radius: 25px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1 1 45%;
+  min-width: 120px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#shift-controls button:hover:not(:disabled) {
+  background-color: #ff3e3e;
+  color: white;
+}
+
+#shift-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Sections */
+section {
+  background: white;
+  margin: 20px 0;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+h2 {
+  margin-top: 0;
+  color: #ff3e3e;
+  letter-spacing: 0.05em;
+}
+
+/* Add order form */
+#add-order form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#add-order input[type="text"],
+#add-order input[type="tel"] {
+  padding: 12px 15px;
+  border-radius: 8px;
+  border: 1.5px solid #ddd;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+#add-order input[type="text"]:focus,
+#add-order input[type="tel"]:focus {
+  border-color: #ff3e3e;
+  outline: none;
+}
+
+#add-order button[type="submit"] {
+  background-color: #ff3e3e;
+  color: white;
+  padding: 14px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#add-order button[type="submit"]:hover:not(:disabled) {
+  background-color: #e63232;
+}
+
+#add-order button[type="submit"]:disabled {
+  background-color: #ff9999;
+  cursor: not-allowed;
+}
+
+/* Address autocomplete container fix */
+#add-order form > div {
+  position: relative;
+  width: 100%;
+}
+
+/* Orders list */
+#order-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#order-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: #fff3f2;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: background-color 0.3s;
+}
+
+#order-list li.delivered {
+  background: #d9f2d9;
+  color: #27632a;
+  text-decoration: line-through;
+}
+
+.order-info {
+  flex: 1;
+  margin-left: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.order-actions button {
+  background: none;
+  border: none;
+  color: #ff3e3e;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background-color 0.3s;
+}
+
+.order-actions button:hover {
+  background-color: #ffb3b3;
+}
+
+/* Summary */
+#summary p {
+  font-size: 1.1rem;
+  margin: 8px 0;
+  font-weight: 600;
+}
+
+/* Autocomplete suggestions */
 .autocomplete-items {
   position: absolute;
   border: 1px solid #ddd;
   border-top: none;
-  max-height: 150px;
+  max-height: 180px;
   overflow-y: auto;
   background-color: white;
   z-index: 1000;
-  width: 100%; /* full width of container */
+  width: 100%;
   box-sizing: border-box;
+  border-radius: 0 0 10px 10px;
 }
 
 .autocomplete-item {
-  padding: 10px;
+  padding: 12px 15px;
   cursor: pointer;
+  font-size: 1rem;
 }
 
 .autocomplete-item:hover {
-  background-color: #f0f0f0;
+  background-color: #ffe6e6;
+  color: #ff3e3e;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  #shift-controls button {
+    flex: 1 1 100%;
+  }
 }
