@@ -1,0 +1,24 @@
+
+/* General styles (you may already have your own) */
+
+/* Autocomplete suggestions dropdown */
+.autocomplete-items {
+  position: absolute;
+  border: 1px solid #ddd;
+  border-top: none;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: white;
+  z-index: 1000;
+  width: 100%; /* full width of container */
+  box-sizing: border-box;
+}
+
+.autocomplete-item {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background-color: #f0f0f0;
+}
